@@ -1,0 +1,7 @@
+{
+  "name": "Zahara: El Oráculo Ancestral",
+  "description": "Una experiencia mística de tarot impulsada por IA con interacción por voz y ambiente inmersivo.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
