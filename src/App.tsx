@@ -96,6 +96,7 @@ export default function App() {
   const [selectedCard, setSelectedCard] = useState<typeof TAROT_CARDS[0] | null>(null);
   const [isReadingCard, setIsReadingCard] = useState(false);
   const [shuffledCards, setShuffledCards] = useState<typeof TAROT_CARDS>([]);
+  const [tarotReadingActive, setTarotReadingActive] = useState(false);
 
   // --- Refs ---
   const recognitionRef = useRef<any>(null);
@@ -106,7 +107,7 @@ export default function App() {
   // --- Initialization ---
   useEffect(() => {
     // Initialize AI
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY;
     
     if (apiKey) {
       aiRef.current = new GoogleGenAI({ apiKey });
@@ -231,6 +232,7 @@ export default function App() {
     
     setSelectedCard(card);
     setIsReadingCard(true);
+    setTarotReadingActive(true);
     
     if (!aiRef.current) return;
 
@@ -252,10 +254,16 @@ export default function App() {
       
       if (!isMuted) {
         speak(zaharaText);
+      } else {
+        // If muted, keep the card lifted for a short duration so the user has time to read, then return to place
+        setTimeout(() => {
+          setTarotReadingActive(false);
+        }, 8000);
       }
     } catch (err) {
       console.error("Error in tarot reading:", err);
       setError("Zahara no puede ver las cartas claramente. Intenta de nuevo.");
+      setTarotReadingActive(false);
     } finally {
       setIsReadingCard(false);
     }
@@ -265,6 +273,11 @@ export default function App() {
     const shuffled = [...TAROT_CARDS].sort(() => Math.random() - 0.5);
     setShuffledCards(shuffled);
     setSelectedCard(null);
+    setTarotReadingActive(false);
+    if (synthRef.current) {
+      synthRef.current.cancel();
+    }
+    setIsSpeaking(false);
   };
 
   useEffect(() => {
@@ -304,10 +317,15 @@ export default function App() {
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
+      setTarotReadingActive(false);
       // Alexa-style loop: listen again after speaking
       setTimeout(() => {
         if (!isMuted) startListening();
       }, 500);
+    };
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setTarotReadingActive(false);
     };
     
     synthRef.current.speak(utterance);
@@ -767,11 +785,42 @@ export default function App() {
                       animate={{ opacity: 1, scale: 1 }}
                       className="flex flex-col items-center py-4"
                     >
-                      <div className="w-48 aspect-[2/3] bg-[#0a0502] border-2 border-[#d4af37] rounded-xl shadow-[0_0_40px_rgba(212,175,55,0.3)] flex flex-col items-center justify-center p-4 relative overflow-hidden mb-6">
-                        <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(212,175,55,0.1)_0%,transparent_70%)] animate-pulse" />
-                        <span className="text-6xl mb-4 z-10">{selectedCard.image}</span>
+                      <motion.div 
+                        animate={{
+                          y: tarotReadingActive ? -36 : 0,
+                          scale: tarotReadingActive ? 1.08 : 1,
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 90,
+                          damping: 14,
+                        }}
+                        className={cn(
+                          "w-48 aspect-[2/3] bg-[#0a0502] border-2 rounded-xl flex flex-col items-center justify-center p-4 relative overflow-hidden mb-6 transition-all duration-700",
+                          tarotReadingActive 
+                            ? "border-[#d4af37] shadow-[0_0_50px_rgba(212,175,55,0.85),_0_0_25px_rgba(168,85,247,0.5)] bg-[#120703]"
+                            : "border-[#d4af37]/60 shadow-[0_0_30px_rgba(212,175,55,0.25)]"
+                        )}
+                      >
+                        <div className={cn(
+                          "absolute inset-0 transition-opacity duration-1000 bg-[radial-gradient(circle,rgba(212,175,55,0.25)_0%,transparent_70%)]",
+                          tarotReadingActive ? "opacity-100 animate-pulse" : "opacity-40"
+                        )} />
+                        
+                        {tarotReadingActive && (
+                          <motion.div
+                            initial={{ x: "-100%" }}
+                            animate={{ x: "100%" }}
+                            transition={{ repeat: Infinity, duration: 2.5, ease: "linear" }}
+                            className="absolute top-0 bottom-0 w-1/3 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 pointer-events-none"
+                          />
+                        )}
+                        <span className={cn(
+                          "text-6xl mb-4 z-10 transition-all duration-700",
+                          tarotReadingActive ? "scale-110 drop-shadow-[0_0_15px_rgba(212,175,55,0.6)]" : ""
+                        )}>{selectedCard.image}</span>
                         <span className="text-[#d4af37] font-bold uppercase tracking-widest text-center z-10">{selectedCard.name}</span>
-                      </div>
+                      </motion.div>
                       
                       <button 
                         onClick={shuffleTarot}
