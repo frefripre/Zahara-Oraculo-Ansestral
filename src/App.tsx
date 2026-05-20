@@ -107,13 +107,13 @@ export default function App() {
   // --- Initialization ---
   useEffect(() => {
     // Initialize AI
-    const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY;
+    const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (process as any).env?.GEMINI_API_KEY || localStorage.getItem('VITE_GEMINI_API_KEY');
     
     if (apiKey) {
       aiRef.current = new GoogleGenAI({ apiKey });
       generateAvatar();
     } else {
-      setError("Falta la clave de API de Gemini. Por favor, configúrala en los secretos o en el archivo .env como VITE_GEMINI_API_KEY.");
+      setError("Falta la clave de API de Gemini. Por favor, configúrala en los secretos o como VITE_GEMINI_API_KEY.");
     }
 
     // Initialize Speech
@@ -167,7 +167,7 @@ export default function App() {
   // --- Auto-scroll ---
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, currentTranscript]);
+  }, [messages]);
 
   // --- Actions ---
   const generateAvatar = async () => {
@@ -310,8 +310,8 @@ export default function App() {
     }
 
     utterance.lang = 'es-ES';
-    utterance.pitch = 0.35; // Deeper, more ancient resonance
-    utterance.rate = 0.55;  // Even slower, more deliberate storyteller pace
+    utterance.pitch = 0.85; // Deeper and wiser, but fully compatible with mobile Web Speech engines
+    utterance.rate = 0.85;  // Slow, storyteller pace but fluidly readable without mobile browser stutter
     utterance.volume = 1;
     
     utterance.onstart = () => setIsSpeaking(true);
@@ -455,8 +455,8 @@ export default function App() {
       {/* Main Content */}
       <main className="z-10 flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Side: Avatar & Visualization */}
-        <div className="flex-1 flex flex-col items-center justify-center p-8 relative">
-          <div className="relative w-64 h-64 md:w-96 md:h-96">
+        <div className="flex-shrink-0 md:flex-1 flex flex-col items-center justify-center p-4 md:p-8 relative">
+          <div className="relative w-32 h-32 md:w-96 md:h-96">
             {/* Enhanced Ethereal Aura */}
             <AnimatePresence>
               {(isSpeaking || isListening) && (
