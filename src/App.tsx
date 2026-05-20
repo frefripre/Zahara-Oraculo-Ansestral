@@ -292,9 +292,13 @@ export default function App() {
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Try to find a good female Spanish voice for a "wise old woman" feel
-    // Prioritize "Natural" or "Neural" voices if available for better quality
-    const spanishVoices = voices.filter(v => v.lang.startsWith('es'));
+    // Dynamically query voices in case they loaded asynchronously (crucial on mobile browsers)
+    const allVoices = window.speechSynthesis.getVoices();
+    const activeVoices = allVoices.length > 0 ? allVoices : voices;
+    const spanishVoices = activeVoices.filter(v => 
+      v.lang.startsWith('es') || v.lang.includes('ES') || v.lang.includes('es-')
+    );
+    
     const preferredVoice = spanishVoices.find(v => 
       (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('online')) &&
       (v.name.toLowerCase().includes('google') || v.name.toLowerCase().includes('female'))
@@ -309,9 +313,13 @@ export default function App() {
       utterance.voice = preferredVoice;
     }
 
+    const isMobileDevice = /Mobi|Android|iPhone|iPad|Macintosh/i.test(navigator.userAgent);
+    
     utterance.lang = 'es-ES';
-    utterance.pitch = 0.85; // Deeper and wiser, but fully compatible with mobile Web Speech engines
-    utterance.rate = 0.85;  // Slow, storyteller pace but fluidly readable without mobile browser stutter
+    // On mobile devices, extreme pitch (< 0.9) and rate (< 0.9) make speech robotic and stuttery.
+    // Setting clean 1.0 pitch and slightly relaxed 0.9 pace yields perfect human-like speech.
+    utterance.pitch = isMobileDevice ? 1.0 : 0.85; 
+    utterance.rate = isMobileDevice ? 0.90 : 0.85;  
     utterance.volume = 1;
     
     utterance.onstart = () => setIsSpeaking(true);
@@ -357,7 +365,7 @@ export default function App() {
   // --- Render Helpers ---
   if (!isPaid) {
     return (
-      <div className="min-h-screen bg-[#0a0502] text-[#d4af37] flex flex-col items-center justify-center p-6 font-serif relative overflow-hidden">
+      <div className="h-full w-full bg-[#0a0502] text-[#d4af37] flex flex-col items-center justify-center p-6 font-serif relative overflow-hidden">
         {/* Atmospheric Background */}
         <div className="absolute inset-0 z-0">
           <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-[#3a1510] rounded-full blur-[120px] opacity-30" />
@@ -409,7 +417,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0502] text-[#e0d8d0] font-serif flex flex-col relative overflow-hidden">
+    <div className="h-full w-full bg-[#0a0502] text-[#e0d8d0] font-serif flex flex-col relative overflow-hidden select-none">
       {/* Atmospheric Background */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_30%,#3a1510_0%,transparent_60%)] opacity-40" />
@@ -710,33 +718,64 @@ export default function App() {
                 </div>
 
                 {/* Controls */}
-                <div className="p-6 border-t border-white/10 bg-black/40">
-                  <div className="flex items-center gap-4">
-                    <button 
-                      onClick={isListening ? () => recognitionRef.current?.stop() : startListening}
-                      disabled={isSpeaking}
-                      className={cn(
-                        "flex-1 h-14 rounded-full flex items-center justify-center gap-3 font-bold transition-all",
-                        isListening 
-                          ? "bg-red-500/20 border border-red-500/50 text-red-500" 
-                          : "bg-[#d4af37] text-black hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] disabled:opacity-50 disabled:grayscale"
-                      )}
-                    >
-                      {isListening ? (
-                        <>
-                          <MicOff className="w-5 h-5" />
-                          Detener
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="w-5 h-5" />
-                          Hablar con Zahara
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-center mt-4 opacity-40 uppercase tracking-widest">
-                    Presiona para preguntar sobre tu destino
+                <div className="p-4 md:p-6 border-t border-white/10 bg-black/40">
+                  <form 
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const input = form.elements.namedItem('chatInput') as HTMLInputElement;
+                      if (input && input.value.trim() && !isSpeaking) {
+                        handleUserMessage(input.value.trim());
+                        input.value = '';
+                      }
+                    }}
+                    className="flex flex-col gap-3"
+                  >
+                    <div className="flex gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 focus-within:border-[#d4af37]/50 transition-colors">
+                      <input 
+                        name="chatInput"
+                        type="text"
+                        placeholder="Escribe tu consulta o destino..."
+                        disabled={isSpeaking}
+                        className="flex-1 bg-transparent text-sm text-white focus:outline-none placeholder:text-white/30 disabled:opacity-50"
+                      />
+                      <button 
+                        type="submit"
+                        disabled={isSpeaking}
+                        className="text-[#d4af37] hover:scale-105 transition-transform disabled:opacity-50"
+                      >
+                        <Sparkles className="w-5 h-5 animate-pulse" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button 
+                        type="button"
+                        onClick={isListening ? () => recognitionRef.current?.stop() : startListening}
+                        disabled={isSpeaking}
+                        className={cn(
+                          "flex-1 h-12 rounded-full flex items-center justify-center gap-2 text-xs font-bold transition-all",
+                          isListening 
+                            ? "bg-red-500/20 border border-red-500/50 text-red-500" 
+                            : "bg-[#d4af37]/80 text-black hover:bg-[#d4af37] disabled:opacity-50 disabled:grayscale"
+                        )}
+                      >
+                        {isListening ? (
+                          <>
+                            <MicOff className="w-4 h-4" />
+                            Detener micrófono
+                          </>
+                        ) : (
+                          <>
+                            <Mic className="w-4 h-4" />
+                            Hablar con voz
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                  <p className="text-[10px] text-center mt-3 opacity-40 uppercase tracking-widest leading-relaxed">
+                    Escribe o usa tu voz para consultar al oráculo. Si el micrófono no responde, abre en otra pestaña.
                   </p>
                 </div>
               </motion.div>
